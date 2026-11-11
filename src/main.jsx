@@ -2,7 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { artworks, languages, translations } from './content.js'
 import { AuthPanel } from './components/AuthPanel.jsx'
+import { InquiryForm } from './components/InquiryForm.jsx'
+import { InquiryList } from './components/InquiryList.jsx'
 import { useAuth } from './hooks/useAuth.js'
+import { useArtworks } from './hooks/useArtworks.js'
+import { useInquiries } from './hooks/useInquiries.js'
 import './styles.css'
 
 const LANGUAGE_STORAGE_KEY = 'natalija-language'
@@ -141,6 +145,55 @@ function InfoPage({ page, copy }) {
         <h1>{content.title}</h1>
         <p className="info-lead">{content.demo}</p>
         <p className="info-note">{content.note}</p>
+      </section>
+    </main>
+  )
+}
+
+function ContactPage({ copy, language, user, isAuthLoading, onOpenAuth }) {
+  const artworkData = useArtworks()
+  const inquiryData = useInquiries(user)
+  const text = copy.inquiries
+
+  return (
+    <main className="wrap info-page contact-page">
+      <div className="info-decoration" aria-hidden="true">✳</div>
+      <section className="contact-intro">
+        <p className="eyebrow">{copy.contact.eyebrow}</p>
+        <h1>{copy.contact.title}</h1>
+        <p className="info-lead">{copy.contact.demo}</p>
+        <p className="info-note">{copy.contact.note}</p>
+      </section>
+      <section className="contact-workflow" aria-label={text.formTitle}>
+        {isAuthLoading ? (
+          <p className="inquiry-state" role="status">{text.authLoading}</p>
+        ) : user ? (
+          <>
+            <InquiryForm
+              copy={copy}
+              user={user}
+              artworks={artworkData.artworks}
+              artworksLoading={artworkData.isLoading}
+              artworksError={artworkData.error}
+              retryArtworks={artworkData.retry}
+              isSubmitting={inquiryData.isSubmitting}
+              onSubmit={inquiryData.submitInquiry}
+            />
+            <InquiryList
+              copy={copy}
+              language={language}
+              inquiries={inquiryData.inquiries}
+              isLoading={inquiryData.isLoading}
+              error={inquiryData.error}
+              onRetry={inquiryData.retry}
+            />
+          </>
+        ) : (
+          <div className="inquiry-signin">
+            <p>{text.signInPrompt}</p>
+            <button className="auth-mode-toggle" type="button" onClick={onOpenAuth}>{copy.auth.signIn}</button>
+          </div>
+        )}
       </section>
     </main>
   )
@@ -328,7 +381,8 @@ function App() {
   if (page === 'home') content = <HomePage language={language} copy={copy} />
   else if (page === 'gallery') content = <GalleryPage language={language} copy={copy} selectedCategory={selectedCategory} onCategoryChange={setSelectedCategory} />
   else if (page === 'artwork') content = <ArtworkPage id={id} language={language} copy={copy} />
-  else content = <InfoPage page={page} copy={copy} />
+  else if (page === 'about') content = <InfoPage page={page} copy={copy} />
+  else content = <ContactPage copy={copy} language={language} user={auth.user} isAuthLoading={auth.isLoading} onOpenAuth={openAuth} />
 
   return (
     <>
