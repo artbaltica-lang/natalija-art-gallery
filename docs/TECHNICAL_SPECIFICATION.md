@@ -1,7 +1,7 @@
 # Technical Specification — Natalija Art Gallery
 
-**Project status:** First visual implementation — local development  
-**Specification date:** 2026-11-10
+**Project status:** React + Vite application with Supabase Auth and inquiry workflow
+**Specification date:** 2026-11-11
 
 ## 1. Purpose
 
@@ -9,11 +9,11 @@ Define requirements for a personal artist portfolio website that presents origin
 
 ## Implementation snapshot
 
-- The first local version uses native HTML, CSS, and JavaScript modules and a small Node.js built-in HTTP server; there are no installed frontend dependencies.
+- The application uses React and Vite with the existing `@supabase/supabase-js` browser client.
 - Hash routes provide Home, Gallery, Artwork Details, About, and Contact views. The selected language is retained in browser `localStorage` while navigating and after reload.
-- `src/content.js` contains translated demonstration artwork. The About and Contact views are placeholders and do not contain actual biography or contact details.
+- `src/content.js` contains translated demonstration artwork. The Home and Gallery pages continue to use this local demo data; demo records are not inserted into Supabase.
 - Demonstration images use temporary external Unsplash URLs and the selected typefaces load from Google Fonts; both require an internet connection.
-- Deployment, GitHub connection, Supabase, and authentication are not configured or included.
+- Supabase Auth and the inquiry workflow use the configured browser client. Supabase artworks are fetched for inquiry associations; they do not replace the existing gallery data.
 
 ## 2. Goals
 
@@ -38,10 +38,8 @@ Define requirements for a personal artist portfolio website that presents origin
 
 ### Not included in the first implementation
 
-- Database, authentication, and content-management backend
-- Selecting or initializing a frontend framework
-- Package installation and third-party runtime dependencies
-- Supabase integration
+- Database-backed gallery display or content management
+- Supabase Storage integration
 - Populating the site with actual artist biographies, contact information, artwork records, or images
 - Production deployment or GitHub repository setup
 
@@ -76,11 +74,16 @@ Define requirements for a personal artist portfolio website that presents origin
 - Support localized content in RU, LT, and EN.
 - The biography content and any portrait or supporting imagery have not yet been provided.
 
-### 4.5 Contact
+### 4.5 Contact and inquiries
 
-- Provide a clear contact method to be selected and supplied by the artist.
-- Localize page text and instructions in RU, LT, and EN.
-- The current implementation displays translated placeholder copy only. The actual contact method and whether the page uses a form or direct contact links remain undecided. Do not assume a form backend.
+- Reuse the Contact hash route for an authenticated inquiry form and the signed-in user's inquiry history.
+- Require name, email, and message; prefill email from the authenticated user. Artwork association is optional, and choices must come from public Supabase artwork UUIDs.
+- Allow `normal` and `high` urgency. A general inquiry without an artwork is valid.
+- Insert the current authenticated user's ID from the Supabase Auth user object; never accept a user ID from form input.
+- Display only the current user's inquiries, including linked artwork when available, urgency, and creation date.
+- Anonymous visitors see localized sign-in guidance rather than the form or private inquiry list.
+- Provide localized loading, retryable error, empty, validation, and success states in EN, LT, and RU.
+- Inquiry submissions are stored in the database. Email delivery or automation is not implemented by the browser workflow.
 
 ## 5. Content model
 
@@ -121,8 +124,8 @@ The demo uses a JavaScript data array in `src/content.js`, with localized text k
 - Codex is planned as a development-assistance tool.
 - GitHub is planned for version control.
 - Vercel is planned for deployment.
-- Supabase is an optional future choice for database and image storage; adoption depends on later content-management and storage needs.
-- The first version uses native HTML, CSS, and JavaScript modules, served locally by Node.js without installed dependencies.
+- Supabase Auth and database-backed inquiries are implemented using the existing client. Gallery content management and image storage remain future choices.
+- The frontend uses React and Vite. Local development and production builds use the configured Vite scripts.
 - Hosting configuration and the content editing workflow remain undecided. No deployment is configured.
 
 ## 9. Quality attributes
@@ -140,7 +143,30 @@ The demo uses a JavaScript data array in `src/content.js`, with localized text k
 - What should happen when a translation is missing?
 - Will the gallery need filtering, sorting, search, or pagination?
 - How will artist-approved artwork content be authored and updated?
-- Is Supabase needed, or is another content and image workflow sufficient?
+- What content-management and image-storage workflow should be used?
 - Which contact method should the Contact page use?
 - What are the artist-approved biography, contact details, initial artwork inventory, and image assets?
 - What visual tokens, accessibility targets, and performance targets should implementation meet?
+
+## 11. Authentication (approved feature)
+
+- Any visitor may register with an email address and password.
+- Email confirmation is required. Registration links return to the current application origin; the origin must be allowed in Supabase Auth redirect URL settings.
+- Use the PKCE browser flow so the email-confirmation callback uses a query parameter and does not conflict with the site's hash-based page routes.
+- The application must not treat registration as an authenticated session unless Supabase returns a session. When confirmation is required and no session is created, show a localized instruction to check the user's email.
+- Existing users can sign in with email and password and sign out.
+- Show the authenticated user's email and a sign-out action in the existing site header.
+- Authentication forms appear in an accessible modal over the existing site. Authentication does not add or change hash routes or replace gallery pages.
+- Persist the browser session across reloads using the existing Supabase JavaScript client defaults. Sign-out ends only the current local session.
+- Localize every authentication label, validation message, status, and error in English (EN), Lithuanian (LT), and Russian (RU).
+- Authentication must use the existing Supabase client and publishable key. Never expose a service-role or secret key in the browser.
+- This feature does not add database tables, alter RLS policies, or change the public gallery behavior.
+
+## 12. Supabase inquiry data (implemented)
+
+- The `artworks` table has `id` (UUID primary key), `user_id` (required UUID referencing `auth.users` with cascade delete), `title` (required text), `type` (required text constrained to `painting`, `batik`, `icon`, or `graphic`), nullable integer `year`, nullable text `description` and `image_url`, and required `created_at` with a `now()` default.
+- The application performs public artwork SELECTs. It does not create, edit, or delete artwork rows. Current demonstration gallery data remains separate in `src/content.js`.
+- The `inquiries` table has `id` (UUID primary key), nullable `artwork_id` (UUID referencing `artworks.id` with set-null on delete), required `user_id` (UUID referencing `auth.users` with cascade delete), required `name`, `email`, and `message` text, required `urgency` text defaulting to `normal` and constrained to `normal` or `high`, and required `created_at` with a `now()` default.
+- The client submits inquiries with the current authenticated user's ID. It filters inquiry SELECTs by that user; RLS independently restricts authenticated INSERT and SELECT to rows where `auth.uid() = user_id`.
+- Public artwork SELECT is available to anon and authenticated roles. Authenticated artwork mutations remain restricted to the owning `user_id` by the existing policies; this application does not expose those operations.
+- Schema, constraints, foreign keys, and RLS policies are not modified by the inquiry feature.
