@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { artworks, languages, translations } from './content.js'
+import { AuthPanel } from './components/AuthPanel.jsx'
+import { useAuth } from './hooks/useAuth.js'
 import './styles.css'
 
 const LANGUAGE_STORAGE_KEY = 'natalija-language'
@@ -182,7 +184,7 @@ function MobileNavigation({ open, page, copy, onNavigate }) {
   )
 }
 
-function SiteHeader({ language, page, copy, onLanguageChange }) {
+function SiteHeader({ language, page, copy, onLanguageChange, user, isAuthLoading, isSubmitting, authOpen, logoutError, authLoadError, accountActionRef, onOpenAuth, onSignOut }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const closeMenu = () => setMenuOpen(false)
 
@@ -207,7 +209,38 @@ function SiteHeader({ language, page, copy, onLanguageChange }) {
         {menuOpen ? '×' : '+'}
       </button>
       <MobileNavigation open={menuOpen} page={page} copy={copy} onNavigate={closeMenu} />
-      <LanguageSwitcher language={language} onChange={onLanguageChange} copy={copy} />
+      <div className="header-tools">
+        <div className="account-controls">
+          {isAuthLoading ? (
+            <span className="account-loading" role="status">{copy.auth.checkingSession}</span>
+          ) : user ? (
+            <>
+              <span className="account-email" title={user.email}>{user.email}</span>
+              <button ref={accountActionRef} className="account-action" type="button" disabled={isSubmitting} onClick={onSignOut}>
+                {isSubmitting ? copy.auth.signingOut : copy.auth.signOut}
+              </button>
+            </>
+          ) : (
+            <button
+              ref={accountActionRef}
+              className="account-action"
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded={authOpen}
+              aria-controls={authOpen ? 'auth-dialog' : undefined}
+              onClick={onOpenAuth}
+            >
+              {copy.auth.account}
+            </button>
+          )}
+        </div>
+        <LanguageSwitcher language={language} onChange={onLanguageChange} copy={copy} />
+        {(logoutError || authLoadError) && (
+          <span className="account-error" role="alert">
+            {logoutError ? copy.auth.logoutFailed : copy.auth.genericError}
+          </span>
+        )}
+      </div>
     </header>
   )
 }
@@ -232,6 +265,11 @@ function App() {
   })
   const [route, setRoute] = useState(getPage)
   const [selectedCategory, setSelectedCategory] = useState('all')
+  const [authOpen, setAuthOpen] = useState(false)
+  const [focusAccountAfterAuth, setFocusAccountAfterAuth] = useState(false)
+  const [logoutError, setLogoutError] = useState(false)
+  const accountActionRef = useRef(null)
+  const auth = useAuth()
   const { page, id } = route
   const copy = translations[language]
 
@@ -246,30 +284,6 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (!import.meta.env.DEV) return
-
-    let active = true
-    const checkSupabaseConnection = async () => {
-      try {
-        const { supabase } = await import('./lib/supabase.js')
-        if (!active) return
-        const { error } = await supabase.from('artworks').select('id').limit(1)
-        if (!active) return
-        if (error) {
-          console.error('Supabase connection failed —', error)
-          return
-        }
-        console.info('Supabase connection successful')
-      } catch (error) {
-        if (active) console.error('Supabase connection failed —', error)
-      }
-    }
-
-    checkSupabaseConnection()
-    return () => { active = false }
-  }, [])
-
-  useEffect(() => {
     document.documentElement.lang = language
     document.title = `${copy.brand} — ${copy.subtitle}`
   }, [language, copy])
@@ -278,6 +292,27 @@ function App() {
     setLanguage(nextLanguage)
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, nextLanguage)
   }
+
+  const closeAuth = useCallback(() => {
+    setAuthOpen(false)
+    setLogoutError(false)
+  }, [])
+  const completeAuth = useCallback(() => {
+    setAuthOpen(false)
+    setLogoutError(false)
+    setFocusAccountAfterAuth(true)
+  }, [])
+  const openAuth = useCallback(() => setAuthOpen(true), [])
+  const handleSignOut = async () => {
+    const { error } = await auth.signOut()
+    setLogoutError(Boolean(error))
+  }
+
+  useEffect(() => {
+    if (!focusAccountAfterAuth || !auth.user) return
+    accountActionRef.current?.focus()
+    setFocusAccountAfterAuth(false)
+  }, [focusAccountAfterAuth, auth.user])
 
   const artwork = page === 'artwork' ? artworks.find((item) => item.id === id) : undefined
   const title = artwork?.title[language]
@@ -302,7 +337,26 @@ function App() {
         page={page}
         copy={copy}
         onLanguageChange={changeLanguage}
+        user={auth.user}
+        isAuthLoading={auth.isLoading}
+        isSubmitting={auth.isSubmitting}
+        authOpen={authOpen}
+        logoutError={logoutError}
+        authLoadError={auth.initializationError}
+        accountActionRef={accountActionRef}
+        onOpenAuth={openAuth}
+        onSignOut={handleSignOut}
       />
+      {authOpen && !auth.user && !auth.isLoading && (
+        <AuthPanel
+          copy={copy}
+          isSubmitting={auth.isSubmitting}
+          onClose={closeAuth}
+          onAuthenticated={completeAuth}
+          signIn={auth.signIn}
+          signUp={auth.signUp}
+        />
+      )}
       {content}
       <SiteFooter copy={copy} />
     </>

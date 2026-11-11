@@ -13,7 +13,7 @@ Define requirements for a personal artist portfolio website that presents origin
 - Hash routes provide Home, Gallery, Artwork Details, About, and Contact views. The selected language is retained in browser `localStorage` while navigating and after reload.
 - `src/content.js` contains translated demonstration artwork. The About and Contact views are placeholders and do not contain actual biography or contact details.
 - Demonstration images use temporary external Unsplash URLs and the selected typefaces load from Google Fonts; both require an internet connection.
-- Deployment, GitHub connection, Supabase, and authentication are not configured or included.
+- Supabase client configuration is present. Email/password authentication is now an approved feature; database-backed gallery management and deployment are not included in this stage.
 
 ## 2. Goals
 
@@ -38,10 +38,10 @@ Define requirements for a personal artist portfolio website that presents origin
 
 ### Not included in the first implementation
 
-- Database, authentication, and content-management backend
+- Database-backed content management
 - Selecting or initializing a frontend framework
 - Package installation and third-party runtime dependencies
-- Supabase integration
+- Supabase database and storage integration
 - Populating the site with actual artist biographies, contact information, artwork records, or images
 - Production deployment or GitHub repository setup
 
@@ -121,7 +121,7 @@ The demo uses a JavaScript data array in `src/content.js`, with localized text k
 - Codex is planned as a development-assistance tool.
 - GitHub is planned for version control.
 - Vercel is planned for deployment.
-- Supabase is an optional future choice for database and image storage; adoption depends on later content-management and storage needs.
+- Supabase Auth is approved for visitor accounts. Database-backed content management and image storage remain future choices.
 - The first version uses native HTML, CSS, and JavaScript modules, served locally by Node.js without installed dependencies.
 - Hosting configuration and the content editing workflow remain undecided. No deployment is configured.
 
@@ -140,7 +140,21 @@ The demo uses a JavaScript data array in `src/content.js`, with localized text k
 - What should happen when a translation is missing?
 - Will the gallery need filtering, sorting, search, or pagination?
 - How will artist-approved artwork content be authored and updated?
-- Is Supabase needed, or is another content and image workflow sufficient?
+- What content-management and image-storage workflow should be used?
 - Which contact method should the Contact page use?
 - What are the artist-approved biography, contact details, initial artwork inventory, and image assets?
 - What visual tokens, accessibility targets, and performance targets should implementation meet?
+
+## 11. Authentication (approved feature)
+
+- Any visitor may register with an email address and password.
+- Email confirmation is required. Registration links return to the current application origin; the origin must be allowed in Supabase Auth redirect URL settings.
+- Use the PKCE browser flow so the email-confirmation callback uses a query parameter and does not conflict with the site's hash-based page routes.
+- The application must not treat registration as an authenticated session unless Supabase returns a session. When confirmation is required and no session is created, show a localized instruction to check the user's email.
+- Existing users can sign in with email and password and sign out.
+- Show the authenticated user's email and a sign-out action in the existing site header.
+- Authentication forms appear in an accessible modal over the existing site. Authentication does not add or change hash routes or replace gallery pages.
+- Persist the browser session across reloads using the existing Supabase JavaScript client defaults. Sign-out ends only the current local session.
+- Localize every authentication label, validation message, status, and error in English (EN), Lithuanian (LT), and Russian (RU).
+- Authentication must use the existing Supabase client and publishable key. Never expose a service-role or secret key in the browser.
+- This feature does not add database tables, alter RLS policies, or change the public gallery behavior.
