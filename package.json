@@ -1,0 +1,9 @@
+{
+  "name": "natalija-art-gallery",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A multilingual artist portfolio website.",
+  "scripts": {
+    "dev": "node server.mjs"
+  }
+}
