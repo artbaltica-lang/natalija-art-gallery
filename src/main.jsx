@@ -246,6 +246,30 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (!import.meta.env.DEV) return
+
+    let active = true
+    const checkSupabaseConnection = async () => {
+      try {
+        const { supabase } = await import('./lib/supabase.js')
+        if (!active) return
+        const { error } = await supabase.from('artworks').select('id').limit(1)
+        if (!active) return
+        if (error) {
+          console.error('Supabase connection failed —', error)
+          return
+        }
+        console.info('Supabase connection successful')
+      } catch (error) {
+        if (active) console.error('Supabase connection failed —', error)
+      }
+    }
+
+    checkSupabaseConnection()
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
     document.documentElement.lang = language
     document.title = `${copy.brand} — ${copy.subtitle}`
   }, [language, copy])
