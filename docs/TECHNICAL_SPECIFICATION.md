@@ -85,6 +85,15 @@ Define requirements for a personal artist portfolio website that presents origin
 - Provide localized loading, retryable error, empty, validation, and success states in EN, LT, and RU.
 - Inquiry submissions are stored in the database. Email delivery or automation is not implemented by the browser workflow.
 
+### 4.6 Inquiry email automation status
+
+- A Zapier workflow is configured for Supabase `public.inquiries` INSERT events. A Supabase Database Webhook sends the new-record payload to a Webhooks by Zapier Catch Hook.
+- Filter by Zapier is configured to pass only INSERT events. Paths by Zapier routes by exact record urgency: Path A matches `normal`; Path B matches `high`.
+- Both paths have a Gmail Send Email action addressed to the gallery owner. The `normal` path uses the subject `New inquiry — Natalija Art Gallery`; the `high` path uses `URGENT: New inquiry — Natalija Art Gallery`.
+- Both email actions include the inquiry name, email, urgency, message, and creation date from the Catch Hook data.
+- Both paths were tested, and test emails were successfully received in Gmail. The Zap was not published because the Zapier Pro trial ended; it remains in Draft. Automatic ongoing email delivery is therefore not active.
+- This integration does not change the browser inquiry workflow, database schema, or RLS policies.
+
 ## 5. Content model
 
 Each artwork belongs to one of the listed categories and may contain the following information:
